@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manajemen Deposit Bimbel ABE-Q</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-50 min-h-screen font-sans">
+  <div id="app"></div>
+
+  <!-- React & Firebase CDN -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    // Inisialisasi Firebase via CDN Modular
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getFirestore, collection, addDoc, getDocs, updateDoc, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyB0V6DnuTc8L2Y50wFfyzH5fydhx2DSDEM",
+      authDomain: "deposit-cf8a4.firebaseapp.com",
+      projectId: "deposit-cf8a4",
+      storageBucket: "deposit-cf8a4.firebasestorage.app",
+      messagingSenderId: "1099129729826",
+      appId: "1:1099129729826:web:d40eee60b40c6ebd1d6b79",
+      measurementId: "G-DEEPY7GGDF"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    function DepositManager() {
+      const [students, setStudents] = useState([]);
+      const [loading, setLoading] = useState(true);
+      const [childName, setChildName] = useState('');
+      const [parentPhone, setParentPhone] = useState('');
+      const [depositAmount, setDepositAmount] = useState('');
+
+      const fetchStudents = async () => {
+        try {
+          const querySnapshot = await getDocs(collection(db, "deposits"));
+          const data = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          setStudents(data);
+          setLoading(false);
+        } catch (error) {
+          console.error("Gagal memuat data:", error);
+          setLoading(false);
+        }
+      };
+
+      useEffect(() => {
+        fetchStudents();
+      }, []);
+
+      const handleAddStudent = async (e) => {
+        e.preventDefault();
+        if (!childName || !parentPhone || !depositAmount) return;
+
+        try {
+          await addDoc(collection(db, "deposits"), {
+            childName,
+            parentPhone,
+            deposit: Number(depositAmount),
+            lastUpdated: '-'
+          });
+          setChildName('');
+          setParentPhone('');
+          setDepositAmount('');
+          fetchStudents();
