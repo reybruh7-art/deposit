@@ -10,8 +10,26 @@
     <div class="max-w-4xl mx-auto">
         <header class="mb-8">
             <h1 class="text-2xl md:text-3xl font-bold text-slate-800">Dashboard Manajemen Deposit</h1>
-            <p class="text-slate-500 text-sm">Kelola deposit saldo, sisa sesi, dan kirim laporan WhatsApp otomatis sekali klik (Rp5.000 / sesi).</p>
+            <p class="text-slate-500 text-sm">Kelola deposit saldo, log sesi, rekap keuangan, dan laporan WhatsApp otomatis (Rp5.000 / sesi).</p>
         </header>
+
+        <!-- Kartu Rekap Total Deposit & Siswa -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-slate-500">Total Seluruh Saldo Deposit</p>
+                    <h3 id="totalDepositBox" class="text-2xl font-bold text-indigo-600 mt-1">Rp 0</h3>
+                </div>
+                <div class="bg-indigo-50 p-3 rounded-xl text-indigo-600 text-2xl">💰</div>
+            </div>
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-slate-500">Total Siswa Terdaftar</p>
+                    <h3 id="totalStudentsBox" class="text-2xl font-bold text-slate-800 mt-1">0 Siswa</h3>
+                </div>
+                <div class="bg-slate-100 p-3 rounded-xl text-slate-600 text-2xl">🎓</div>
+            </div>
+        </div>
 
         <!-- Form Tambah -->
         <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 mb-8">
@@ -28,7 +46,6 @@
         <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
             <div class="p-6 border-b border-slate-100 flex flex-col md:flex-row justify-between items-center gap-4">
                 <h2 class="text-lg font-semibold text-slate-700">Daftar Sisa Deposit Siswa</h2>
-                <!-- Kotak Pencarian Nama Anak / No Telepon -->
                 <input type="text" id="searchBox" placeholder="🔍 Cari nama anak / no WA..." class="w-full md:w-80 px-4 py-2 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
             </div>
             <div id="studentList" class="divide-y divide-slate-100">
@@ -58,6 +75,8 @@
         const studentForm = document.getElementById('studentForm');
         const studentList = document.getElementById('studentList');
         const searchBox = document.getElementById('searchBox');
+        const totalDepositBox = document.getElementById('totalDepositBox');
+        const totalStudentsBox = document.getElementById('totalStudentsBox');
 
         const PRICE_PER_SESSION = 5000;
         let allStudents = [];
@@ -70,9 +89,16 @@
             try {
                 const querySnapshot = await getDocs(collection(db, "deposits"));
                 allStudents = [];
+                let grandTotalDeposit = 0;
+
                 querySnapshot.forEach((docSnap) => {
-                    allStudents.push({ id: docSnap.id, ...docSnap.data() });
+                    const data = docSnap.data();
+                    allStudents.push({ id: docSnap.id, ...data });
+                    grandTotalDeposit += (Number(data.deposit) || 0);
                 });
+
+                totalDepositBox.innerText = formatRupiah(grandTotalDeposit);
+                totalStudentsBox.innerText = `${allStudents.length} Siswa`;
 
                 renderStudents(allStudents);
             } catch (error) {
@@ -89,24 +115,39 @@
 
             let html = '';
             dataArray.forEach((student) => {
-                const totalRupiah = student.deposit;
+                const totalRupiah = student.deposit || 0;
                 const sisaSesi = Math.floor(totalRupiah / PRICE_PER_SESSION);
+                const logs = student.logs || [];
+
+                let logsHtml = logs.length > 0 
+                    ? logs.slice(-3).reverse().map(l => `<li class="text-slate-500">• ${l}</li>`).join('')
+                    : `<li class="text-slate-400 italic">Belum ada riwayat sesi.</li>`;
 
                 html += `
                     <div class="p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 hover:bg-slate-50/50 transition">
-                        <div>
-                            <h3 class="font-bold text-slate-800 text-lg">${student.childName}</h3>
-                            <p class="text-sm text-slate-500">WA: ${student.parentPhone}</p>
-                            <div class="flex flex-wrap gap-2 mt-2 text-xs text-slate-600">
+                        <div class="space-y-2 flex-1">
+                            <div>
+                                <h3 class="font-bold text-slate-800 text-lg">${student.childName}</h3>
+                                <p class="text-sm text-slate-500">WA: ${student.parentPhone}</p>
+                            </div>
+                            <div class="flex flex-wrap gap-2 text-xs text-slate-600">
                                 <span class="bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-full font-semibold">
                                     Deposit: ${formatRupiah(totalRupiah)} / ${sisaSesi} Sesi
                                 </span>
-                                <span class="self-center">Update Terakhir: ${student.lastUpdated || '-'}</span>
+                                <span class="self-center bg-slate-100 px-2 py-0.5 rounded text-slate-600">Update: ${student.lastUpdated || '-'}</span>
+                            </div>
+                            <!-- Bagian Log Sesi -->
+                            <div class="mt-2 text-xs bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                                <p class="font-semibold text-slate-600 mb-1">📅 Riwayat Sesi Terakhir:</p>
+                                <ul class="space-y-0.5">${logsHtml}</ul>
                             </div>
                         </div>
-                        <div class="flex items-center gap-2 w-full md:w-auto">
+                        <div class="flex flex-wrap items-center gap-2 w-full md:w-auto">
                             <button onclick="cutSession('${student.id}', '${student.childName}', ${student.deposit}, '${student.parentPhone}')" class="flex-1 md:flex-none bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium px-4 py-2.5 rounded-xl transition shadow-sm">
                                 Selesai Sesi & Kirim WA
+                            </button>
+                            <button onclick="editDeposit('${student.id}', '${student.childName}', ${student.deposit})" class="bg-amber-50 hover:bg-amber-100 text-amber-700 text-sm font-medium px-3 py-2.5 rounded-xl transition shadow-sm" title="Edit/Top-up Saldo">
+                                ✏️ Edit
                             </button>
                             <button onclick="deleteStudent('${student.id}')" class="bg-rose-50 hover:bg-rose-100 text-rose-600 p-2.5 rounded-xl transition text-sm" title="Hapus">🗑️</button>
                         </div>
@@ -136,7 +177,8 @@
                     childName,
                     parentPhone,
                     deposit: depositAmount,
-                    lastUpdated: '-'
+                    lastUpdated: '-',
+                    logs: []
                 });
                 studentForm.reset();
                 loadStudents();
@@ -144,6 +186,29 @@
                 alert("Gagal menyimpan data!");
             }
         });
+
+        // Fitur Edit / Top-up Saldo Deposit
+        window.editDeposit = async function(id, childName, currentDeposit) {
+            const newAmountStr = prompt(`Masukkan jumlah nominal deposit baru (Rupiah) untuk ${childName}:`, currentDeposit);
+            if (newAmountStr === null) return; // Batal
+            const newAmount = Number(newAmountStr);
+            if (isNaN(newAmount) || newAmount < 0) {
+                alert("Nominal yang dimasukkan tidak valid!");
+                return;
+            }
+
+            try {
+                const studentRef = doc(db, "deposits", id);
+                await updateDoc(studentRef, {
+                    deposit: newAmount,
+                    lastUpdated: new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
+                });
+                loadStudents();
+                alert("Saldo deposit berhasil diperbarui!");
+            } catch (error) {
+                alert("Gagal memperbarui deposit.");
+            }
+        }
 
         window.cutSession = async function(id, childName, currentDeposit, parentPhone) {
             if (currentDeposit < PRICE_PER_SESSION) {
@@ -155,11 +220,17 @@
             const newSesi = Math.floor(newDeposit / PRICE_PER_SESSION);
             const today = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
 
+            // Ambil data student saat ini untuk menambahkan log
+            const currentStudent = allStudents.find(s => s.id === id);
+            let logs = currentStudent && currentStudent.logs ? currentStudent.logs : [];
+            logs.push(`Selesai sesi pada ${today}`);
+
             try {
                 const studentRef = doc(db, "deposits", id);
                 await updateDoc(studentRef, {
                     deposit: newDeposit,
-                    lastUpdated: today
+                    lastUpdated: today,
+                    logs: logs
                 });
 
                 let formattedPhone = parentPhone.trim();
@@ -167,7 +238,6 @@
                     formattedPhone = '62' + formattedPhone.slice(1);
                 }
 
-                // Bagian kalimat penutup WhatsApp yang sudah disesuaikan
                 const message = `Halo Kak/Bapak/Ibu Orang Tua dari *${childName}*,\n\nInformasi sesi belajar selesai pada hari ini (*${today}*).\n\n• Sisa Deposit Terakhir: *${formatRupiah(newDeposit)} (${newSesi} Sesi)*\n\nTerima kasih telah Belajar bersama ABE-Q! 🙏`;
                 
                 window.open(`https://wa.me/${formattedPhone}?text=${encodeURIComponent(message)}`, '_blank');
