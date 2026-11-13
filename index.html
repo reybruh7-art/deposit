@@ -116,7 +116,6 @@
             studentList.innerHTML = html;
         }
 
-        // Fitur Filter Pencarian Berdasarkan Nama Anak ATAU No Telepon
         searchBox.addEventListener('input', (e) => {
             const keyword = e.target.value.toLowerCase();
             const filtered = allStudents.filter(s => 
@@ -168,7 +167,8 @@
                     formattedPhone = '62' + formattedPhone.slice(1);
                 }
 
-                const message = `Halo Kak/Bapak/Ibu Orang Tua dari *${childName}*,\n\nInformasi sesi belajar selesai pada hari ini (*${today}*).\n\n• Sisa Deposit Terakhir: *${formatRupiah(newDeposit)} (${newSesi} Sesi)*\n\nTerima kasih telah mempercayakan bimbingan kami! 🙏`;
+                // Bagian kalimat penutup WhatsApp yang sudah disesuaikan
+                const message = `Halo Kak/Bapak/Ibu Orang Tua dari *${childName}*,\n\nInformasi sesi belajar selesai pada hari ini (*${today}*).\n\n• Sisa Deposit Terakhir: *${formatRupiah(newDeposit)} (${newSesi} Sesi)*\n\nTerima kasih telah Belajar bersama ABE-Q! 🙏`;
                 
                 window.open(`https://wa.me/${formattedPhone}?text=${encodeURIComponent(message)}`, '_blank');
                 loadStudents();
