@@ -10,7 +10,7 @@
     <div class="max-w-4xl mx-auto">
         <header class="mb-8">
             <h1 class="text-2xl md:text-3xl font-bold text-slate-800">Dashboard Manajemen Deposit</h1>
-            <p class="text-slate-500 text-sm">Kelola sisa sesi, saldo, dan kirim laporan WhatsApp otomatis sekali klik (Rp5.000 / sesi).</p>
+            <p class="text-slate-500 text-sm">Kelola deposit saldo, sisa sesi, dan kirim laporan WhatsApp otomatis sekali klik (Rp5.000 / sesi).</p>
         </header>
 
         <!-- Form Tambah -->
@@ -19,15 +19,17 @@
             <form id="studentForm" class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <input type="text" id="childName" placeholder="Nama Anak" class="px-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500" required>
                 <input type="text" id="parentPhone" placeholder="No. WA Orang Tua (cth: 08123...)" class="px-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500" required>
-                <input type="number" id="depositAmount" placeholder="Jumlah Deposit Awal (Sesi)" class="px-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500" required>
+                <input type="number" id="depositAmount" placeholder="Jumlah Deposit Awal (Rp, cth: 50000)" class="px-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500" required>
                 <button type="submit" class="md:col-span-3 bg-indigo-600 text-white font-medium py-2.5 rounded-xl hover:bg-indigo-700 transition">Simpan Data Siswa</button>
             </form>
         </div>
 
-        <!-- Daftar Siswa -->
+        <!-- Daftar Siswa & Kolom Pencarian -->
         <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-            <div class="p-6 border-b border-slate-100">
+            <div class="p-6 border-b border-slate-100 flex flex-col md:flex-row justify-between items-center gap-4">
                 <h2 class="text-lg font-semibold text-slate-700">Daftar Sisa Deposit Siswa</h2>
+                <!-- Kotak Pencarian Nama Anak / No Telepon -->
+                <input type="text" id="searchBox" placeholder="🔍 Cari nama anak / no WA..." class="w-full md:w-80 px-4 py-2 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
             </div>
             <div id="studentList" class="divide-y divide-slate-100">
                 <p class="p-6 text-center text-slate-400">Memuat data...</p>
@@ -55,8 +57,10 @@
 
         const studentForm = document.getElementById('studentForm');
         const studentList = document.getElementById('studentList');
+        const searchBox = document.getElementById('searchBox');
 
         const PRICE_PER_SESSION = 5000;
+        let allStudents = [];
 
         function formatRupiah(number) {
             return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(number);
@@ -65,44 +69,62 @@
         async function loadStudents() {
             try {
                 const querySnapshot = await getDocs(collection(db, "deposits"));
-                if (querySnapshot.empty) {
-                    studentList.innerHTML = `<p class="p-6 text-center text-slate-400">Belum ada data siswa.</p>`;
-                    return;
-                }
-
-                let html = '';
+                allStudents = [];
                 querySnapshot.forEach((docSnap) => {
-                    const student = docSnap.data();
-                    const id = docSnap.id;
-                    const totalRupiah = student.deposit * PRICE_PER_SESSION;
-
-                    html += `
-                        <div class="p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 hover:bg-slate-50/50 transition">
-                            <div>
-                                <h3 class="font-bold text-slate-800 text-lg">${student.childName}</h3>
-                                <p class="text-sm text-slate-500">WA: ${student.parentPhone}</p>
-                                <div class="flex flex-wrap gap-2 mt-2 text-xs text-slate-600">
-                                    <span class="bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-full font-semibold">
-                                        Sisa: ${student.deposit} Sesi / ${formatRupiah(totalRupiah)}
-                                    </span>
-                                    <span class="self-center">Update Terakhir: ${student.lastUpdated || '-'}</span>
-                                </div>
-                            </div>
-                            <div class="flex items-center gap-2 w-full md:w-auto">
-                                <button onclick="cutSession('${id}', '${student.childName}', ${student.deposit}, '${student.parentPhone}')" class="flex-1 md:flex-none bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium px-4 py-2.5 rounded-xl transition shadow-sm">
-                                    Selesai Sesi & Kirim WA
-                                </button>
-                                <button onclick="deleteStudent('${id}')" class="bg-rose-50 hover:bg-rose-100 text-rose-600 p-2.5 rounded-xl transition text-sm" title="Hapus">🗑️</button>
-                            </div>
-                        </div>
-                    `;
+                    allStudents.push({ id: docSnap.id, ...docSnap.data() });
                 });
-                studentList.innerHTML = html;
+
+                renderStudents(allStudents);
             } catch (error) {
                 console.error("Gagal memuat:", error);
                 studentList.innerHTML = `<p class="p-6 text-center text-rose-500">Gagal memuat data dari database.</p>`;
             }
         }
+
+        function renderStudents(dataArray) {
+            if (dataArray.length === 0) {
+                studentList.innerHTML = `<p class="p-6 text-center text-slate-400">Tidak ada data siswa yang ditemukan.</p>`;
+                return;
+            }
+
+            let html = '';
+            dataArray.forEach((student) => {
+                const totalRupiah = student.deposit;
+                const sisaSesi = Math.floor(totalRupiah / PRICE_PER_SESSION);
+
+                html += `
+                    <div class="p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 hover:bg-slate-50/50 transition">
+                        <div>
+                            <h3 class="font-bold text-slate-800 text-lg">${student.childName}</h3>
+                            <p class="text-sm text-slate-500">WA: ${student.parentPhone}</p>
+                            <div class="flex flex-wrap gap-2 mt-2 text-xs text-slate-600">
+                                <span class="bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-full font-semibold">
+                                    Deposit: ${formatRupiah(totalRupiah)} / ${sisaSesi} Sesi
+                                </span>
+                                <span class="self-center">Update Terakhir: ${student.lastUpdated || '-'}</span>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2 w-full md:w-auto">
+                            <button onclick="cutSession('${student.id}', '${student.childName}', ${student.deposit}, '${student.parentPhone}')" class="flex-1 md:flex-none bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium px-4 py-2.5 rounded-xl transition shadow-sm">
+                                Selesai Sesi & Kirim WA
+                            </button>
+                            <button onclick="deleteStudent('${student.id}')" class="bg-rose-50 hover:bg-rose-100 text-rose-600 p-2.5 rounded-xl transition text-sm" title="Hapus">🗑️</button>
+                        </div>
+                    </div>
+                `;
+            });
+            studentList.innerHTML = html;
+        }
+
+        // Fitur Filter Pencarian Berdasarkan Nama Anak ATAU No Telepon
+        searchBox.addEventListener('input', (e) => {
+            const keyword = e.target.value.toLowerCase();
+            const filtered = allStudents.filter(s => 
+                s.childName.toLowerCase().includes(keyword) || 
+                s.parentPhone.toLowerCase().includes(keyword)
+            );
+            renderStudents(filtered);
+        });
 
         studentForm.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -125,13 +147,13 @@
         });
 
         window.cutSession = async function(id, childName, currentDeposit, parentPhone) {
-            if (currentDeposit <= 0) {
-                alert("Deposit anak ini sudah habis!");
+            if (currentDeposit < PRICE_PER_SESSION) {
+                alert("Deposit uang anak ini sudah tidak cukup untuk 1 sesi!");
                 return;
             }
 
-            const newDeposit = currentDeposit - 1;
-            const newRupiah = newDeposit * PRICE_PER_SESSION;
+            const newDeposit = currentDeposit - PRICE_PER_SESSION;
+            const newSesi = Math.floor(newDeposit / PRICE_PER_SESSION);
             const today = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
 
             try {
@@ -146,7 +168,7 @@
                     formattedPhone = '62' + formattedPhone.slice(1);
                 }
 
-                const message = `Halo Kak/Bapak/Ibu Orang Tua dari *${childName}*,\n\nInformasi sesi belajar selesai pada hari ini (*${today}*).\n\n• Sisa Deposit Terakhir: *${newDeposit} Sesi / ${formatRupiah(newRupiah)}*\n\nTerima kasih telah mempercayakan bimbingan kami! 🙏`;
+                const message = `Halo Kak/Bapak/Ibu Orang Tua dari *${childName}*,\n\nInformasi sesi belajar selesai pada hari ini (*${today}*).\n\n• Sisa Deposit Terakhir: *${formatRupiah(newDeposit)} (${newSesi} Sesi)*\n\nTerima kasih telah mempercayakan bimbingan kami! 🙏`;
                 
                 window.open(`https://wa.me/${formattedPhone}?text=${encodeURIComponent(message)}`, '_blank');
                 loadStudents();
