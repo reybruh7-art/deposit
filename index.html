@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Manajemen Deposit ABE-Q</title>
+    <title>Manajemen Deposit Bimbel ABE-Q</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-slate-50 min-h-screen font-sans p-4 md:p-8">
     <div class="max-w-4xl mx-auto">
         <header class="mb-8">
             <h1 class="text-2xl md:text-3xl font-bold text-slate-800">Dashboard Manajemen Deposit</h1>
-            <p class="text-slate-500 text-sm">Kelola sisa sesi dan kirim laporan WhatsApp otomatis sekali klik.</p>
+            <p class="text-slate-500 text-sm">Kelola sisa sesi, saldo, dan kirim laporan WhatsApp otomatis sekali klik (Rp5.000 / sesi).</p>
         </header>
 
         <!-- Form Tambah -->
@@ -56,6 +56,12 @@
         const studentForm = document.getElementById('studentForm');
         const studentList = document.getElementById('studentList');
 
+        const PRICE_PER_SESSION = 5000;
+
+        function formatRupiah(number) {
+            return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(number);
+        }
+
         async function loadStudents() {
             try {
                 const querySnapshot = await getDocs(collection(db, "deposits"));
@@ -68,13 +74,17 @@
                 querySnapshot.forEach((docSnap) => {
                     const student = docSnap.data();
                     const id = docSnap.id;
+                    const totalRupiah = student.deposit * PRICE_PER_SESSION;
+
                     html += `
                         <div class="p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 hover:bg-slate-50/50 transition">
                             <div>
                                 <h3 class="font-bold text-slate-800 text-lg">${student.childName}</h3>
-                                <p class="p-0 text-sm text-slate-500">WA: ${student.parentPhone}</p>
-                                <div class="flex gap-4 mt-2 text-xs text-slate-600">
-                                    <span class="bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-full font-semibold">Sisa Deposit: ${student.deposit} Sesi</span>
+                                <p class="text-sm text-slate-500">WA: ${student.parentPhone}</p>
+                                <div class="flex flex-wrap gap-2 mt-2 text-xs text-slate-600">
+                                    <span class="bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-full font-semibold">
+                                        Sisa: ${student.deposit} Sesi / ${formatRupiah(totalRupiah)}
+                                    </span>
                                     <span class="self-center">Update Terakhir: ${student.lastUpdated || '-'}</span>
                                 </div>
                             </div>
@@ -121,6 +131,7 @@
             }
 
             const newDeposit = currentDeposit - 1;
+            const newRupiah = newDeposit * PRICE_PER_SESSION;
             const today = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
 
             try {
@@ -135,7 +146,7 @@
                     formattedPhone = '62' + formattedPhone.slice(1);
                 }
 
-                const message = `Halo Kak/Bapak/Ibu Orang Tua dari *${childName}*,\n\nInformasi sesi belajar selesai pada hari ini (*${today}*).\n\n• Sisa Sesi/Deposit Terakhir: *${newDeposit} sesi*\n\nTerima kasih telah mempercayakan bimbingan kami! 🙏`;
+                const message = `Halo Kak/Bapak/Ibu Orang Tua dari *${childName}*,\n\nInformasi sesi belajar selesai pada hari ini (*${today}*).\n\n• Sisa Deposit Terakhir: *${newDeposit} Sesi / ${formatRupiah(newRupiah)}*\n\nTerima kasih telah mempercayakan bimbingan kami! 🙏`;
                 
                 window.open(`https://wa.me/${formattedPhone}?text=${encodeURIComponent(message)}`, '_blank');
                 loadStudents();
